@@ -32,6 +32,12 @@ preferences {
 }
 
 mappings {
+  path("/updateip"){
+    action: [
+      GET: "updateip"
+    ]
+  }
+
   path("/things") {
     action: [
       GET: "listThings"
@@ -52,13 +58,24 @@ mappings {
             GET: "calltest"
         ]
     }
+     path("/control") {
+        action: [
+            GET: "docontrol"
+        ]
+    }
+   //test add
+   path("/devices") {
+		action: [
+			GET: "listDevices"
+	    ]
+	}
 }
 def updated() {
     unsubscribe()
     initialize()
 }
 def initialize() {
-    
+    state.ipadress = ""
    log.debug "Installed with settings: ${settings}"
    //subscribe(actuators,"",switchHandler)
    //subscribe(sensors,"",switchHandler)
@@ -110,46 +127,106 @@ def createchild(){
             log.debug ("existing Device $existingDevice.name : $existingDevice.id");
             return [type:'addchilddevice',newdevice:false,id:existingDevice.id,nid:existingDevice.deviceNetworkId]
             }
-       // } catch (e) {
-     //       log.error "Error creating device: ${e}"
-     //   }
-   // }
 
-  //def x=actuators.find { it.id == request.JSON.id}
 
-//	x.on()
-//def x=getAllChildDevices().find { it.id == request.JSON.id}
-//log.debug ("**json passed name for id is $x.name")	
-//def	x=getChildDevice(request.JSON.nid)
-//  if (x){
-//  log.debug (x)
- // } else
- // {
- // log.debug("device not found?")
- // return
-//  }
-  
-  
-//  log.debug ("child device"+x)
-//    if (request.JSON.temp){
- //   	x.setvalue(request.JSON.temp)
-//   }
-    //x.label = "aaa"
-   
-	
-//    log.debug ("$x.id")
-  //return [id:x.id]
+}
+def updateip(){
 
+state.ipaddress = request.JSON.ip
+updated()
+log.debug "Ipaddress updated I hope $ipaddess"
+return [success:"yes",ip:state.ipaddress]
+
+}
+def docontrol(){
+control(request.JSON.id)
+return [ok:"ok"]
 }
 
 
+def control(id) {
+    def command = request.JSON.command
+    def device = actuators.find { it.id == id}
+    if (!device) {device =musicPlayers.find { it.id == id}}
+	if (!device) {device =sensors.find { it.id == id}}
+    if (!device) {device =getAllChildDevices().find { it.id ==id}}
+ 	log.debug "control, id:${id} name:${device.name}"
+    //let's create a toggle option here
+    if (command){
+           log.debug(command)
+
+       if (!device) {
+            httpError(404, "Device not found")
+        } else {
+        
+        // test lines
+      log.debug 'req val:'+  request.JSON.value
+       if (!request.JSON.value ){
+        log.debug 'testtesttest' 
+      device."$command"()
+       }else
+       {
+       device."$command"(request.JSON.value)
+       }
+       
+       device."$command"(request.JSON.value)
+        return
+        if (command == "Switch"){
+         	log.debug "Switch Command from level451 value:"+request.JSON.value+ " ID:"+device.label
+            	if (request.JSON.value > 0){
+                    log.debug("device.on()")
+								 device.on();
+                    //device.turnon();
+                }else{
+                	log.debug("device.off()")
+                   // device.turnoff();
+                    device.off();
+                
+                
+                }
+                
+         } else
+            if (command == "setlevel"){
+           		 log.debug 'setlevel - update vantage light '+request.JSON.value
+                 if (request.JSON.value == 0){
+                  device.turnoff()
+                  device.setvalue(request.JSON.value)  
+
+          		  }
+                	else
+          		  {
+					device.turnon(request.JSON.value)
+                    device.setvalue(request.JSON.value)  
+         		   }
+            
+            
+           	  }
+            else if(command == "toggle")
+            {
+                log.debug 'toggle'
+               if(device.currentValue('switch') == "on")
+                  device.off();
+                else
+                  device.on();
+            }
+            else
+            {
+              if(request.JSON.value){
+              log.debug("setting value")
+           device.on()
+           device.setvalue(request.JSON.value)  
+               }
+            }
+        }
+    }
+    
+}
 def doupdate(){
 update(request.JSON.id)
 return [ok:"ok"]
 }
 
 def update(id) {
-    log.debug("in update")
     def command = request.JSON.command
     def device = actuators.find { it.id == id}
     if (!device) {device =musicPlayers.find { it.id == id}}
@@ -245,35 +322,27 @@ def command = request.JSON?.command
 log.debug "commandxx "+command
 }
 
-private device(it, type) {
-  def device_state = [name:it.name, label:it.label, type:type, id:it.id, stid:it.id]
 
-  for (attribute in it.supportedAttributes) {
-    device_state."${attribute}" = it.currentValue("${attribute}")
-  }
-	device_state.commands = []
-    def supportedCaps = it.capabilities
-	supportedCaps.each {cap ->
-    	device_state.commands = device_state.commands + [name:cap.name, sendto:"smartthings"]
-        log.debug "This device (${it}) supports the ${cap.name} capability"
-	}
-    
- device_state ? device_state : null
-}
 def switchHandler(evt) {
 
-log.debug "Todds switch called: $evt.value,$evt.name,$evt.isStateChange ,$evt.device"
+log.debug "Todds eventhandler: $evt.value,$evt.name,$evt.isStateChange ,$evt.device"
 
-
-  
-
+log.debug "ipaddess $state.ipaddress"
 sendHubCommand(new physicalgraph.device.HubAction([
-	method: "POST",
+    method: "POST",
     path: "/api",
     headers: [
-    	HOST:ipaddress
+        HOST:state.ipaddress
         ],
-        body:[source:"$evt.source",id:"$evt.deviceId",device:"$evt.displayName",name: "$evt.name",value: "$evt.value",data:"$evt.data"]],"asdf"))
+        body:[source:"$evt.source",
+        id:"$evt.deviceId",
+        device:"$evt.displayName",
+        name: "$evt.name",
+        value: "$evt.value",
+        data:"$evt.data",
+        source:"$evt.source"
+        
+        ]]))
         
 }
 /**********************************
@@ -288,7 +357,7 @@ log.debug "send from child:"
 	method: "POST",
     path: "/api",
     headers: [
-    	HOST:ipaddress
+    	HOST:state.ipaddress
         ],
         body:[temp:invalue,id:dev.id]]))
 }
@@ -298,10 +367,152 @@ def docommand(dev,cmd,value){
 	method: "POST",
     path: "/api",
     headers: [
-    	HOST:ipaddress
+    	HOST:state.ipaddress
         ],
         body:[command:cmd,value:value,id:dev.id]]))
 }
 def manualRefresh(dev){
 log.debug "manual refresh parent"
 }
+////////////////////// all test code below
+def listDevices() {
+	log.debug "getDevices, params: ${params}"
+ [
+  devices: sensors.collect{deviceItem(it)}
+  //devices: sensors.collect{device(it,"sensor")}+actuators.collect{device(it,"actuator")},
+  //children: getAllChildDevices().collect{device(it,"")}
+  ]
+//	allDevices.collect {
+//		deviceItem(it)
+//	}
+}
+private deviceItem(device) {
+//https://searchcode.com/codesearch/view/89518190/
+	def caps = device.capabilities
+
+    [
+		id: device.id,
+        stid : device.id,
+        type: "Smartthings",
+		label: device.displayName,
+        name: device.name,
+        typename:device.typeName,
+        author:device.typeAuthor,
+//currentStates: device.currentStates,
+		capabilities: device.capabilities?.collect {[
+			name: it.name
+		]},
+		events: device.supportedAttributes?.collect {[
+			name: it.name,
+			dataType: it.dataType,
+			values: it.values
+		]},
+		commands: device.supportedCommands?.collect {[
+			name: it.name,
+            command: it.name,
+            arguments: it.arguments?it.arguments:null 
+		]}
+	
+	]
+}
+def getDeviceCommands(){
+//https://raw.githubusercontent.com/bravenel/SmartThings/aca858e1820b67bb076b02814713321e4a659276/Rule%20Machine%20X
+	def result = ""
+	devices.each { device ->
+        result = device.supportedCommands.collect{ it as String }
+        //log.debug "supportedCommands:${result}"
+	}
+	return result
+}
+
+
+
+//***************************************************************************************************************
+
+
+private device(it, type) {
+  def device_state = [name:it.name, label:it.label, type:type, id:it.id, stid:it.id]
+
+
+def supportedCommands = it.supportedCommands
+
+// logs each command's arguments
+	device_state.commands = []
+    	device_state.args = []
+
+supportedCommands.each {
+	
+      // device_state.args=device_state.args+it
+
+    def xargs = it.arguments
+    	xargs.each{
+            device_state.args=device_state.args+[atrname:it]
+        
+        }
+        device_state.commands = device_state.commands + [name:it.name, sendto:"smartthings",command:it.name,args:device_state.args]
+
+    
+	}
+
+  // log.debug "arguments for swithLevel command ${it.name}: ${it.arguments}"
+
+
+
+
+// log each capability supported by the "mySwitch" device
+	//device_state.commands = []
+def mySwitchCaps = it.capabilities
+//mySwitchCaps.each {cap ->
+//     cap.commands.each {comm ->
+
+ //       	device_state.commands = device_state.commands + [name:comm.name, sendto:"smartthings",command:comm.name]
+
+   //     }
+//}
+device_state.events = []
+
+
+
+
+for (attribute in it.supportedAttributes) {
+  
+
+  def currentState = it.currentState("${attribute}")
+ device_state.events = device_state.events +[event:"${attribute}"]
+ 
+
+	// this line crashes the system with the ecobee
+    //device_state."${attribute}" = it.currentValue(currentValue)
+  }
+	device_state.capabilities = []
+	def supportedCaps = it.capabilities
+	supportedCaps.each {cap ->
+    	device_state.capabilities = device_state.capabilities + cap.name
+	}
+    
+ device_state ? device_state : null
+}
+ // "currentStates": [
+//                {
+                  //  "id": "95946690-8b89-11e6-b179-22000b6d8030",
+                //    "hubId": "1edcb5db-2750-47e3-b273-98e5407fc25e",
+              //      "isVirtualHub": false,
+            //        "description": "Water Heater switch is on",
+          //          "rawDescription": "zw device: 03, command: 2001, payload: FF",
+        //            "displayed": true,
+      //              "isStateChange": true,
+    //                "linkText": "Water Heater",
+  //                  "date": "2016-10-06T05:56:11.731Z",
+//                    "unixTime": 1475733371731,
+                //    "value": "on",
+              //      "viewed": false,
+            //        "translatable": false,
+          //          "archivable": true,
+        //            "deviceId": "0f0a636c-721b-4bc2-b4ba-caeaad9bce78",
+      //              "name": "switch",
+    //                "locationId": "f7fd780e-ac08-48fc-8bbf-50833e2092fc",
+  //                  "eventSource": "DEVICE",
+//                    "deviceTypeId": "5c2c78a2-b612-4fa4-919f-2f5466848047",
+    //                "type": "physical",
+  //                  "data": "{\"microDeviceTile\":{\"type\":\"standard\",\"icon\":\"st.Home.home2\",\"backgroundColor\":\"#79b821\"}}"
+//                },
