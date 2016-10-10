@@ -26,9 +26,7 @@ preferences {
 
 
   }
-   section("Level451 Bridge Infomation") {
-           input "ipaddress", "string", required: true, title: "Ipaddress:port"
-    }
+  
 }
 
 mappings {
@@ -38,11 +36,7 @@ mappings {
     ]
   }
 
-  path("/things") {
-    action: [
-      GET: "listThings"
-    ]
-  }
+ 
     path("/createchild") {
         action: [
             GET: "createchild"
@@ -134,17 +128,19 @@ def updateip(){
 
 state.ipaddress = request.JSON.ip
 updated()
-log.debug "Ipaddress updated I hope $ipaddess"
+log.debug "Ipaddress updated I hope $state.ipaddess"
 return [success:"yes",ip:state.ipaddress]
 
 }
 def docontrol(){
+log.debug 'at control'
 control(request.JSON.id)
 return [ok:"ok"]
 }
 
 
 def control(id) {
+    log.debug 'ID:'+id
     def command = request.JSON.command
     def device = actuators.find { it.id == id}
     if (!device) {device =musicPlayers.find { it.id == id}}
@@ -334,7 +330,7 @@ sendHubCommand(new physicalgraph.device.HubAction([
     headers: [
         HOST:state.ipaddress
         ],
-        body:[source:"$evt.source",
+        body:[
         id:"$evt.deviceId",
         device:"$evt.displayName",
         name: "$evt.name",
@@ -388,29 +384,36 @@ def listDevices() {
 }
 private deviceItem(device) {
 //https://searchcode.com/codesearch/view/89518190/
-	def caps = device.capabilities
 
     [
 		id: device.id,
         stid : device.id,
-        type: "Smartthings",
-		label: device.displayName,
-        name: device.name,
-        typename:device.typeName,
+		internalname: device.name,
+        name:  device.displayName,
+        type:device.typeName,
         author:device.typeAuthor,
-//currentStates: device.currentStates,
-		capabilities: device.capabilities?.collect {[
-			name: it.name
-		]},
+        controller:"SmartThings",
+        issmarthingschild: false,
+        currentstate: device.currentStates?.collect {[
+            name: it.name,
+            value: it.value,
+            unit: it.unit,
+            date: it.date
+            
+            
+        ]},
+		capabilities: device.capabilities?.collect {
+			it.name
+		},
 		events: device.supportedAttributes?.collect {[
 			name: it.name,
-			dataType: it.dataType,
-			values: it.values
+			values: (it.dataType == "ENUM")?it.values:it.dataType
 		]},
 		commands: device.supportedCommands?.collect {[
 			name: it.name,
             command: it.name,
-            arguments: it.arguments?it.arguments:null 
+            arguments: it.arguments?it.arguments:null,
+            sendto:"smartthings"
 		]}
 	
 	]
@@ -429,69 +432,8 @@ def getDeviceCommands(){
 
 //***************************************************************************************************************
 
+//currentStates: device.currentStates,
 
-private device(it, type) {
-  def device_state = [name:it.name, label:it.label, type:type, id:it.id, stid:it.id]
-
-
-def supportedCommands = it.supportedCommands
-
-// logs each command's arguments
-	device_state.commands = []
-    	device_state.args = []
-
-supportedCommands.each {
-	
-      // device_state.args=device_state.args+it
-
-    def xargs = it.arguments
-    	xargs.each{
-            device_state.args=device_state.args+[atrname:it]
-        
-        }
-        device_state.commands = device_state.commands + [name:it.name, sendto:"smartthings",command:it.name,args:device_state.args]
-
-    
-	}
-
-  // log.debug "arguments for swithLevel command ${it.name}: ${it.arguments}"
-
-
-
-
-// log each capability supported by the "mySwitch" device
-	//device_state.commands = []
-def mySwitchCaps = it.capabilities
-//mySwitchCaps.each {cap ->
-//     cap.commands.each {comm ->
-
- //       	device_state.commands = device_state.commands + [name:comm.name, sendto:"smartthings",command:comm.name]
-
-   //     }
-//}
-device_state.events = []
-
-
-
-
-for (attribute in it.supportedAttributes) {
-  
-
-  def currentState = it.currentState("${attribute}")
- device_state.events = device_state.events +[event:"${attribute}"]
- 
-
-	// this line crashes the system with the ecobee
-    //device_state."${attribute}" = it.currentValue(currentValue)
-  }
-	device_state.capabilities = []
-	def supportedCaps = it.capabilities
-	supportedCaps.each {cap ->
-    	device_state.capabilities = device_state.capabilities + cap.name
-	}
-    
- device_state ? device_state : null
-}
  // "currentStates": [
 //                {
                   //  "id": "95946690-8b89-11e6-b179-22000b6d8030",
