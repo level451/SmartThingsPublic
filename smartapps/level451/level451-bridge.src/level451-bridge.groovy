@@ -79,14 +79,23 @@ def initialize() {
    subscribe(sensors,"switch",switchHandler)
    subscribe(actuators,"level",switchHandler)
    subscribe(sensors,"level",switchHandler)
+// ecobee
    subscribe(sensors, "temperature", switchHandler)
+   subscribe(sensors, "humidity", switchHandler)
    subscribe(sensors, "heatingSetpoint", switchHandler)
    subscribe(sensors, "coolingSetpoint", switchHandler)
    subscribe(sensors, "thermostatSetpoint", switchHandler)
    subscribe(sensors, "thermostatMode", switchHandler)
    subscribe(sensors, "thermostatFanMode", switchHandler)
    subscribe(sensors, "thermostatOperatingState", switchHandler)
-   //subscribe(sensors, "", switchHandler)
+   subscribe(sensors, "schedule", switchHandler)
+   subscribe(sensors, "thermostatStatus", switchHandler)
+   //subscribe(sensors, "deviceAlive", switchHandler)
+   subscribe(sensors, "checkInterval", switchHandler)
+
+
+
+//subscribe(sensors, "", switchHandler)
    //subscribe(sensors, "", switchHandler)
 
 //subscribe(musicPlayers, "status", switchHandler)
@@ -374,8 +383,9 @@ log.debug "manual refresh parent"
 def listDevices() {
 	log.debug "getDevices, params: ${params}"
  [
-  devices: sensors.collect{deviceItem(it)}
-  //devices: sensors.collect{device(it,"sensor")}+actuators.collect{device(it,"actuator")},
+  //devices: sensors.collect{deviceItem(it)} // working line
+  devices: sensors.collect{deviceItem(it)}+actuators.collect{deviceItem(it)}
+    //devices: sensors.collect{device(it,"sensor")}+actuators.collect{device(it,"actuator")}
   //children: getAllChildDevices().collect{device(it,"")}
   ]
 //	allDevices.collect {
