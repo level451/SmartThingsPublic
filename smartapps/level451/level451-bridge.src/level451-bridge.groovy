@@ -136,6 +136,7 @@ def createchild(){
 def updateip(){
 
 state.ipaddress = request.JSON.ip
+state.ipaddress = "10.6.1.3:8180"
 updated()
 log.debug "Ipaddress updated I hope $state.ipaddess"
 return [success:"yes",ip:state.ipaddress]
@@ -232,6 +233,7 @@ return [ok:"ok"]
 }
 
 def update(id) {
+    log.debug "AT UPDATE!"
     def command = request.JSON.command
     def device = actuators.find { it.id == id}
     if (!device) {device =musicPlayers.find { it.id == id}}
@@ -333,6 +335,7 @@ def switchHandler(evt) {
 log.debug "Todds eventhandler: $evt.value,$evt.name,$evt.isStateChange ,$evt.device"
 
 log.debug "ipaddess $state.ipaddress"
+state.ipaddress = "10.6.1.3:8180"
 sendHubCommand(new physicalgraph.device.HubAction([
     method: "POST",
     path: "/api",
@@ -358,6 +361,8 @@ Child Calls
 *********************/
 def sendtolevel451(invalue,dev){
 log.debug "send from child:"
+  	state.ipaddress = "10.6.1.3:8180"
+
   sendHubCommand(new physicalgraph.device.HubAction([
 	method: "POST",
     path: "/api",
@@ -367,7 +372,8 @@ log.debug "send from child:"
         body:[temp:invalue,id:dev.id]]))
 }
 def docommand(dev,cmd,value){
-	log.debug "here" // never seems to happen ST bug - but the next command runs
+	state.ipaddress = "10.6.1.3:8180"
+    log.debug "here" // never seems to happen ST bug - but the next command runs
     sendHubCommand(new physicalgraph.device.HubAction([
 	method: "POST",
     path: "/api",
